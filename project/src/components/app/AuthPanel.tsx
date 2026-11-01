@@ -2,6 +2,7 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import CarbonGhostLogo from '@/components/brand/CarbonGhostLogo';
+import { appHash } from '@/lib/useRoute';
 
 type Mode = 'sign-in' | 'sign-up';
 
@@ -14,7 +15,7 @@ const USERS_KEY = 'carbonghost_demo_users';
 const SESSION_KEY = 'carbonghost_demo_session';
 
 // Change this to the actual route of your workbench.
-const WORKBENCH_ROUTE = '/workbench';
+
 
 export default function AuthPanel() {
   const [mode, setMode] = useState<Mode>('sign-in');
@@ -42,7 +43,6 @@ export default function AuthPanel() {
     setPending(true);
 
     try {
-      // Small delay to make the prototype interaction feel realistic.
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       const normalizedEmail = email.trim().toLowerCase();
@@ -102,8 +102,8 @@ export default function AuthPanel() {
 
       // Redirect after successful authentication.
       setTimeout(() => {
-        window.location.assign(WORKBENCH_ROUTE);
-      }, 500);
+  window.location.hash = appHash('workbench');
+}, 500);
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
