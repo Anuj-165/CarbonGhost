@@ -6,14 +6,18 @@ import { HistoryScreen } from '@/components/app/HistoryScreen';
 import MethodologyScreen from '@/components/app/MethodologyScreen';
 import OverviewScreen from '@/components/app/OverviewScreen';
 import SettingsScreen from '@/components/app/SettingsScreen';
+
 import { useWorkbench } from '@/lib/benchmark/useWorkbench';
-import { useAuthSession } from '@/lib/auth/useAuthSession';
+import {
+  signOutDemoSession,
+  useAuthSession,
+  type DemoSession,
+} from '@/lib/auth/useAuthSession';
+
 import { useSettings } from '@/lib/settings/useSettings';
 import type { EnergySettings } from '@/lib/settings/settingsRepository';
-import { supabase } from '@/lib/supabase';
 import { appHash, type AppScreen } from '@/lib/useRoute';
 import type { StoredOutcome } from '@/lib/runs/runRepository';
-import type { Session } from '@supabase/supabase-js';
 
 const SCREEN_TITLES: Record<AppScreen, string> = {
   overview: 'Overview',
@@ -31,23 +35,45 @@ interface AppRootProps {
 export default function AppRoot({ screen, runId }: AppRootProps) {
   const auth = useAuthSession();
 
-  if (!auth.ready) return <div className="min-h-screen bg-ink" aria-busy="true" />;
-  if (!auth.session) return <AuthPanel />;
+  if (!auth.ready) {
+    return <div className="min-h-screen bg-ink" aria-busy="true" />;
+  }
 
-  return <SettingsGate screen={screen} runId={runId} session={auth.session} />;
+  if (!auth.session) {
+    return <AuthPanel />;
+  }
+
+  return (
+    <SettingsGate
+      screen={screen}
+      runId={runId}
+      session={auth.session}
+    />
+  );
 }
 
-function SettingsGate({ screen, runId, session }: AppRootProps & { session: Session }) {
+function SettingsGate({
+  screen,
+  runId,
+  session,
+}: AppRootProps & { session: DemoSession }) {
   const { state, retry, save } = useSettings();
 
-  if (state.status === 'loading') return <div className="min-h-screen bg-ink" aria-busy="true" />;
+  if (state.status === 'loading') {
+    return <div className="min-h-screen bg-ink" aria-busy="true" />;
+  }
+
   if (state.status === 'error') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-ink px-6 font-sans text-paper">
         <div className="max-w-sm">
-          <p role="alert" className="border-l-2 border-chartreuse pl-3 text-[14px] leading-[1.6]">
+          <p
+            role="alert"
+            className="border-l-2 border-chartreuse pl-3 text-[14px] leading-[1.6]"
+          >
             Your settings could not be loaded: {state.message}
           </p>
+
           <button
             type="button"
             onClick={retry}
@@ -72,14 +98,30 @@ function SettingsGate({ screen, runId, session }: AppRootProps & { session: Sess
 }
 
 interface SignedInWorkspaceProps extends AppRootProps {
-  session: Session;
+  session: DemoSession;
   settings: EnergySettings;
   onSaveSettings: (next: EnergySettings) => Promise<void>;
 }
 
-function SignedInWorkspace({ screen, runId, session, settings, onSaveSettings }: SignedInWorkspaceProps) {
+function SignedInWorkspace({
+  screen,
+  runId,
+  session,
+  settings,
+  onSaveSettings,
+}: SignedInWorkspaceProps) {
   const workbench = useWorkbench(settings);
-  const { run, start, reset, environment, executionLabel, executionTone, reproduce } = workbench;
+
+  const {
+    run,
+    start,
+    reset,
+    environment,
+    executionLabel,
+    executionTone,
+    reproduce,
+  } = workbench;
+
   const running = run.status === 'running';
 
   const commands: Command[] = [
@@ -108,7 +150,8 @@ function SignedInWorkspace({ screen, runId, session, settings, onSaveSettings }:
       label: 'Sign out',
       hint: 'Account',
       onSelect: () => {
-        void supabase.auth.signOut();
+        signOutDemoSession();
+        window.location.hash = '#top';
       },
     },
   ];
@@ -127,11 +170,28 @@ function SignedInWorkspace({ screen, runId, session, settings, onSaveSettings }:
       environmentLabel={environment?.runtime ?? 'Browser'}
       title={SCREEN_TITLES[screen]}
     >
-      {screen === 'workbench' && <ComparisonWorkspace workbench={workbench} />}
+      {screen === 'workbench' && (
+        <ComparisonWorkspace workbench={workbench} />
+      )}
+
       {screen === 'overview' && <OverviewScreen />}
-      {screen === 'history' && <HistoryScreen runId={runId} onReproduce={reproduceRun} />}
+
+      {screen === 'history' && (
+        <HistoryScreen
+          runId={runId}
+          onReproduce={reproduceRun}
+        />
+      )}
+
       {screen === 'methodology' && <MethodologyScreen />}
-      {screen === 'settings' && <SettingsScreen session={session} settings={settings} onSave={onSaveSettings} />}
+
+      {screen === 'settings' && (
+        <SettingsScreen
+          session={session}
+          settings={settings}
+          onSave={onSaveSettings}
+        />
+      )}
     </AppShell>
   );
 }

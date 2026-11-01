@@ -1,35 +1,73 @@
 import { useEffect, useState } from 'react';
-import type { Session } from '@supabase/supabase-js';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+
+export const DEMO_SESSION_KEY = 'carbonghost_demo_session';
+
+export interface DemoSession {
+  email: string;
+  loggedInAt: string;
+}
 
 export interface AuthState {
   ready: boolean;
-  session: Session | null;
+  session: DemoSession | null;
+}
+
+function readDemoSession(): DemoSession | null {
+  try {
+    const raw = localStorage.getItem(DEMO_SESSION_KEY);
+    if (!raw) return null;
+
+    const parsed: unknown = JSON.parse(raw);
+
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('email' in parsed) ||
+      typeof parsed.email !== 'string' ||
+      !parsed.email.trim()
+    ) {
+      return null;
+    }
+
+    return {
+      email: parsed.email,
+      loggedInAt:
+        'loggedInAt' in parsed && typeof parsed.loggedInAt === 'string'
+          ? parsed.loggedInAt
+          : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function signOutDemoSession(): void {
+  localStorage.removeItem(DEMO_SESSION_KEY);
+  window.dispatchEvent(new Event('carbonghost-auth-change'));
 }
 
 export function useAuthSession(): AuthState {
-  const [state, setState] = useState<AuthState>({ ready: false, session: null });
+  const [state, setState] = useState<AuthState>({
+    ready: false,
+    session: null,
+  });
 
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setState({ ready: true, session: null });
-      return;
-    }
+    const syncSession = () => {
+      setState({
+        ready: true,
+        session: readDemoSession(),
+      });
+    };
 
-    let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setState({ ready: true, session: data.session });
-    });
+    syncSession();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        if (active) setState({ ready: true, session });
-      })();
-    });
+    window.addEventListener('storage', syncSession);
+    window.addEventListener('carbonghost-auth-change', syncSession);
 
     return () => {
-      active = false;
-      subscription.subscription.unsubscribe();
+      window.removeEventListener('storage', syncSession);
+      window.removeEventListener('carbonghost-auth-change', syncSession);
     };
   }, []);
 

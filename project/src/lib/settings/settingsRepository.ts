@@ -1,4 +1,7 @@
-import { supabase } from '@/lib/supabase';
+import {
+  DEMO_SESSION_KEY,
+  type DemoSession,
+} from '@/lib/auth/useAuthSession';
 
 export interface EnergySettings {
   powerW: number;
@@ -8,45 +11,60 @@ export interface EnergySettings {
   executionsPerDay: number;
 }
 
-interface SettingsRow {
-  power_w: number;
-  intensity_g_per_kwh: number;
-  power_uncertainty: number;
-  intensity_uncertainty: number;
-  executions_per_day: number;
-}
+function getSettingsStorageKey(): string {
+  const rawSession = localStorage.getItem(DEMO_SESSION_KEY);
 
-const COLUMNS = 'power_w, intensity_g_per_kwh, power_uncertainty, intensity_uncertainty, executions_per_day';
+  if (!rawSession) {
+    throw new Error('Sign in again to access your settings.');
+  }
+
+  let session: DemoSession;
+
+  try {
+    session = JSON.parse(rawSession) as DemoSession;
+  } catch {
+    throw new Error('Your demo session is invalid. Please sign in again.');
+  }
+
+  if (!session.email?.trim()) {
+    throw new Error('Your demo session is invalid. Please sign in again.');
+  }
+
+  return `carbonghost_demo_settings:${session.email.trim().toLowerCase()}`;
+}
 
 export async function loadSettings(): Promise<EnergySettings | null> {
-  const { data, error } = await supabase.from('user_settings').select(COLUMNS).maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) return null;
-  const row = data as SettingsRow;
-  return {
-    powerW: row.power_w,
-    intensityGPerKWh: row.intensity_g_per_kwh,
-    powerUncertainty: row.power_uncertainty,
-    intensityUncertainty: row.intensity_uncertainty,
-    executionsPerDay: row.executions_per_day,
-  };
+  const key = getSettingsStorageKey();
+  const raw = localStorage.getItem(key);
+
+  if (!raw) return null;
+
+  try {
+    const settings = JSON.parse(raw) as EnergySettings;
+
+    const valid =
+      Number.isFinite(settings.powerW) &&
+      Number.isFinite(settings.intensityGPerKWh) &&
+      Number.isFinite(settings.powerUncertainty) &&
+      Number.isFinite(settings.intensityUncertainty) &&
+      Number.isFinite(settings.executionsPerDay);
+
+    if (!valid) {
+      localStorage.removeItem(key);
+      return null;
+    }
+
+    return settings;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
 }
 
-export async function saveSettings(settings: EnergySettings): Promise<void> {
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  if (userError || !userData.user) throw new Error('Sign in again to save your settings.');
+export async function saveSettings(
+  settings: EnergySettings,
+): Promise<void> {
+  const key = getSettingsStorageKey();
 
-  const { error } = await supabase.from('user_settings').upsert(
-    {
-      user_id: userData.user.id,
-      power_w: settings.powerW,
-      intensity_g_per_kwh: settings.intensityGPerKWh,
-      power_uncertainty: settings.powerUncertainty,
-      intensity_uncertainty: settings.intensityUncertainty,
-      executions_per_day: settings.executionsPerDay,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' },
-  );
-  if (error) throw new Error(error.message);
+  localStorage.setItem(key, JSON.stringify(settings));
 }
