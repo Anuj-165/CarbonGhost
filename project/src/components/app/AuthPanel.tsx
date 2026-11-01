@@ -14,9 +14,6 @@ type DemoUser = {
 const USERS_KEY = 'carbonghost_demo_users';
 const SESSION_KEY = 'carbonghost_demo_session';
 
-// Change this to the actual route of your workbench.
-
-
 export default function AuthPanel() {
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
@@ -29,7 +26,9 @@ export default function AuthPanel() {
 
   const getUsers = (): DemoUser[] => {
     try {
-      return JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+      const storedUsers = localStorage.getItem(USERS_KEY);
+
+      return storedUsers ? JSON.parse(storedUsers) : [];
     } catch {
       return [];
     }
@@ -43,12 +42,14 @@ export default function AuthPanel() {
     setPending(true);
 
     try {
+      // Simulate a short authentication request.
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       const normalizedEmail = email.trim().toLowerCase();
       const users = getUsers();
 
       if (signUp) {
+        // Check whether the account already exists.
         const existingUser = users.find(
           (user) => user.email === normalizedEmail
         );
@@ -58,6 +59,7 @@ export default function AuthPanel() {
           return;
         }
 
+        // Create a new demo account.
         const newUser: DemoUser = {
           email: normalizedEmail,
           password,
@@ -68,6 +70,7 @@ export default function AuthPanel() {
           JSON.stringify([...users, newUser])
         );
 
+        // Create a login session.
         localStorage.setItem(
           SESSION_KEY,
           JSON.stringify({
@@ -76,8 +79,11 @@ export default function AuthPanel() {
           })
         );
 
-        setNotice('Account created successfully. Opening your workbench...');
+        setNotice(
+          'Account created successfully. Opening your workbench...'
+        );
       } else {
+        // Validate login credentials.
         const existingUser = users.find(
           (user) =>
             user.email === normalizedEmail &&
@@ -89,6 +95,7 @@ export default function AuthPanel() {
           return;
         }
 
+        // Create a login session.
         localStorage.setItem(
           SESSION_KEY,
           JSON.stringify({
@@ -100,10 +107,9 @@ export default function AuthPanel() {
         setNotice('Login successful. Welcome back!');
       }
 
-      // Redirect after successful authentication.
-      setTimeout(() => {
-  window.location.hash = appHash('workbench');
-}, 500);
+      // Redirect using the application's hash-based routing.
+      // appHash('workbench') returns '#/app'.
+      window.location.hash = appHash('workbench');
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
