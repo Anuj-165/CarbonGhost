@@ -186,7 +186,7 @@ Actual energy consumption depends on hardware, workload, utilization, and execut
 ### 1. Clone the repository
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/Anuj-165/CarbonGhost.git
 cd CarbonGhost
 ```
 
