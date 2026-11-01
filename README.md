@@ -281,7 +281,7 @@ CarbonGhost aims to encourage developers to build software that is not only perf
 
 ## 👨‍💻 Team
 
-**Team Name:** [YOUR TEAM NAME]
+**Team Name:** Syntax Syndicate
 
 **Project:** CarbonGhost
 
