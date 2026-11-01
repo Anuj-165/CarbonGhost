@@ -5,6 +5,17 @@ import CarbonGhostLogo from '@/components/brand/CarbonGhostLogo';
 
 type Mode = 'sign-in' | 'sign-up';
 
+type DemoUser = {
+  email: string;
+  password: string;
+};
+
+const USERS_KEY = 'carbonghost_demo_users';
+const SESSION_KEY = 'carbonghost_demo_session';
+
+// Change this to the actual route of your workbench.
+const WORKBENCH_ROUTE = '/workbench';
+
 export default function AuthPanel() {
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
@@ -15,6 +26,14 @@ export default function AuthPanel() {
 
   const signUp = mode === 'sign-up';
 
+  const getUsers = (): DemoUser[] => {
+    try {
+      return JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -22,16 +41,74 @@ export default function AuthPanel() {
     setNotice(null);
     setPending(true);
 
-    // Authentication integration will be added later.
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      // Small delay to make the prototype interaction feel realistic.
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-    setPending(false);
+      const normalizedEmail = email.trim().toLowerCase();
+      const users = getUsers();
 
-    setNotice(
-      signUp
-        ? 'Your details are ready. Authentication will be available soon.'
-        : 'Authentication is not connected yet. Please check back soon.'
-    );
+      if (signUp) {
+        const existingUser = users.find(
+          (user) => user.email === normalizedEmail
+        );
+
+        if (existingUser) {
+          setError('An account with this email already exists.');
+          return;
+        }
+
+        const newUser: DemoUser = {
+          email: normalizedEmail,
+          password,
+        };
+
+        localStorage.setItem(
+          USERS_KEY,
+          JSON.stringify([...users, newUser])
+        );
+
+        localStorage.setItem(
+          SESSION_KEY,
+          JSON.stringify({
+            email: normalizedEmail,
+            loggedInAt: new Date().toISOString(),
+          })
+        );
+
+        setNotice('Account created successfully. Opening your workbench...');
+      } else {
+        const existingUser = users.find(
+          (user) =>
+            user.email === normalizedEmail &&
+            user.password === password
+        );
+
+        if (!existingUser) {
+          setError('Invalid email or password. Please try again.');
+          return;
+        }
+
+        localStorage.setItem(
+          SESSION_KEY,
+          JSON.stringify({
+            email: normalizedEmail,
+            loggedInAt: new Date().toISOString(),
+          })
+        );
+
+        setNotice('Login successful. Welcome back!');
+      }
+
+      // Redirect after successful authentication.
+      setTimeout(() => {
+        window.location.assign(WORKBENCH_ROUTE);
+      }, 500);
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setPending(false);
+    }
   };
 
   const inputClass =
@@ -61,14 +138,6 @@ export default function AuthPanel() {
 
           <p className="mt-4 text-[14px] leading-[1.6] text-sage">
             Save and manage your code comparisons in your personal workspace.
-          </p>
-
-          <p
-            role="status"
-            className="mt-8 border-l-2 border-chartreuse pl-3 text-[13px] text-paper"
-          >
-            Authentication is currently under development. Account access
-            will be enabled soon.
           </p>
 
           <form
@@ -114,14 +183,17 @@ export default function AuthPanel() {
             {error && (
               <p
                 role="alert"
-                className="border-l-2 border-chartreuse pl-3 text-[13px] text-paper"
+                className="border-l-2 border-red-400 pl-3 text-[13px] text-red-300"
               >
                 {error}
               </p>
             )}
 
             {notice && (
-              <p role="status" className="text-[13px] text-chartreuse">
+              <p
+                role="status"
+                className="border-l-2 border-chartreuse pl-3 text-[13px] text-chartreuse"
+              >
                 {notice}
               </p>
             )}
@@ -153,13 +225,14 @@ export default function AuthPanel() {
 
           <button
             type="button"
+            disabled={pending}
             onClick={() => {
               setMode(signUp ? 'sign-in' : 'sign-up');
               setError(null);
               setNotice(null);
               setPassword('');
             }}
-            className="mt-8 font-mono text-[12px] text-sage transition-colors duration-300 hover:text-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-chartreuse"
+            className="mt-8 font-mono text-[12px] text-sage transition-colors duration-300 hover:text-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-chartreuse disabled:opacity-50"
           >
             {signUp
               ? 'Already have an account? Sign in'
