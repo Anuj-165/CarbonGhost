@@ -1,20 +1,30 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { HistoryFilters } from '@/components/app/HistoryFilters';
 import { createPortal } from 'react-dom';
+
 import {
   Activity,
   ArrowDownRight,
   ArrowRight,
+  Check,
+  Clock3,
   Download,
   FlaskConical,
   Layers3,
+  Leaf,
+  MemoryStick,
   Printer,
+  Timer,
   TrendingUp,
   Zap,
 } from 'lucide-react';
 
+import { HistoryFilters } from '@/components/app/HistoryFilters';
+import ResultsView from '@/components/app/ResultsView';
+import RunReport from '@/components/app/RunReport';
+
 import { appHash } from '@/lib/useRoute';
+
 import {
   listRuns,
   type StoredOutcome,
@@ -23,6 +33,7 @@ import {
 
 import { formatMs } from '@/lib/benchmark/stats';
 import { MODE_COPY } from '@/lib/benchmark/examples';
+
 import {
   buildRunCsv,
   downloadFile,
@@ -35,9 +46,6 @@ import {
   inputSizeOptions,
   type RunFilters,
 } from '@/lib/runs/filterRuns';
-
-import ResultsView from '@/components/app/ResultsView';
-import RunReport from '@/components/app/RunReport';
 
 type LoadState =
   | { status: 'loading' }
@@ -174,13 +182,13 @@ export function HistoryScreen({
   }
 
   const visibleRuns = filterRuns(state.runs, filters);
+  const hasRuns = state.runs.length > 0;
 
   return (
     <div className="mx-auto flex max-w-[1240px] flex-col gap-10 px-5 py-10 lg:px-8 lg:py-14">
 
       {/* HEADER */}
       <section className="flex flex-col gap-5 border-b border-graphite pb-10 md:flex-row md:items-end md:justify-between">
-
         <div className="max-w-2xl">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-sage">
             Experiment archive
@@ -204,12 +212,10 @@ export function HistoryScreen({
           New experiment
           <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
         </a>
-
       </section>
 
       {/* STATISTICS */}
       <section className="grid gap-6 border-b border-graphite pb-9 sm:grid-cols-2 lg:grid-cols-4">
-
         <HistoryStat
           label="Total experiments"
           value={statistics?.total.toString() ?? '0'}
@@ -241,13 +247,11 @@ export function HistoryScreen({
           description="Faster than baseline"
           icon={<TrendingUp className="h-4 w-4" />}
         />
-
       </section>
 
       {/* PERFORMANCE SUMMARY */}
       {statistics && statistics.comparable > 0 && (
         <section className="flex flex-col gap-4">
-
           <div className="flex items-center justify-between">
             <h3 className="font-mono text-[10px] uppercase tracking-[0.16em] text-sage">
               Performance overview
@@ -305,226 +309,498 @@ export function HistoryScreen({
               Baseline faster · {statistics.slower}
             </span>
           </div>
-
         </section>
       )}
 
+      {/* EMPTY STATE */}
+      {!hasRuns && (
+        <EmptyHistory />
+      )}
+
       {/* HISTORY LIST */}
-      <section className="flex flex-col gap-5">
+      {hasRuns && (
+        <section className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-mono text-[10px] uppercase tracking-[0.16em] text-sage">
+                Saved experiments
+              </h3>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-          <div>
-            <h3 className="font-mono text-[10px] uppercase tracking-[0.16em] text-sage">
-              Saved experiments
-            </h3>
-
-            <p className="mt-2 text-[13px] text-sage">
-              Browse, filter and revisit your previous benchmarks.
-            </p>
-          </div>
-
-          <span className="font-mono text-[10px] text-sage">
-            {state.runs.length.toString().padStart(2, '0')} TOTAL RECORDS
-          </span>
-
-        </div>
-
-        <HistoryFilters
-          filters={filters}
-          sizes={inputSizeOptions(state.runs)}
-          onChange={setFilters}
-        />
-
-        <div className="flex items-center justify-between border-b border-graphite pb-4">
-          <p
-            className="font-mono text-[10px] uppercase tracking-[0.12em] text-sage"
-            aria-live="polite"
-          >
-            Showing {visibleRuns.length} of {state.runs.length} experiments
-          </p>
-
-          {visibleRuns.length > 0 && (
-            <span className="font-mono text-[10px] text-sage">
-              NEWEST FIRST
-            </span>
-          )}
-        </div>
-
-        {state.runs.length === 0 && (
-          <div className="flex flex-col items-start gap-4 border-y border-graphite py-12">
-            <div className="flex h-12 w-12 items-center justify-center border border-graphite text-chartreuse">
-              <Zap className="h-5 w-5" />
+              <p className="mt-2 text-[13px] text-sage">
+                Browse, filter and revisit your previous benchmarks.
+              </p>
             </div>
 
-            <h3 className="font-display text-2xl text-paper">
-              Your experiment archive is waiting.
-            </h3>
-
-            <p className="max-w-md text-[14px] leading-[1.7] text-sage">
-              Every completed comparison you save will appear here.
-              Revisit results, inspect performance differences and
-              export reports whenever you need them.
-            </p>
-
-            <a
-              href={appHash('workbench')}
-              className="mt-2 flex h-11 items-center gap-3 bg-chartreuse px-5 text-[13px] font-medium text-ink transition-transform hover:-translate-y-px"
-            >
-              Run your first experiment
-              <ArrowRight className="h-4 w-4" />
-            </a>
+            <span className="font-mono text-[10px] text-sage">
+              {state.runs.length.toString().padStart(2, '0')} TOTAL RECORDS
+            </span>
           </div>
-        )}
 
-        {state.runs.length > 0 && visibleRuns.length === 0 && (
-          <div className="flex flex-col items-start gap-4 border-y border-graphite py-10">
-            <p className="text-[15px] text-paper">
-              No experiments match these filters.
-            </p>
+          <HistoryFilters
+            filters={filters}
+            sizes={inputSizeOptions(state.runs)}
+            onChange={setFilters}
+          />
 
-            <p className="text-[13px] text-sage">
-              Try changing your search or clearing the active filters.
-            </p>
-
-            <button
-              type="button"
-              onClick={() => setFilters(EMPTY_FILTERS)}
-              className="flex h-10 items-center border border-graphite px-4 text-[13px] text-paper transition-colors duration-300 hover:border-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-chartreuse"
+          <div className="flex items-center justify-between border-b border-graphite pb-4">
+            <p
+              className="font-mono text-[10px] uppercase tracking-[0.12em] text-sage"
+              aria-live="polite"
             >
-              Clear filters
-            </button>
+              Showing {visibleRuns.length} of {state.runs.length} experiments
+            </p>
+
+            {visibleRuns.length > 0 && (
+              <span className="font-mono text-[10px] text-sage">
+                NEWEST FIRST
+              </span>
+            )}
           </div>
-        )}
 
-        {visibleRuns.length > 0 && (
-          <ul className="divide-y divide-graphite border-y border-graphite">
+          {visibleRuns.length === 0 && (
+            <div className="flex flex-col items-start gap-4 border-y border-graphite py-10">
+              <p className="text-[15px] text-paper">
+                No experiments match these filters.
+              </p>
 
-            {visibleRuns.map((run, index) => {
-              const hasBoth =
-                run.baselineMedianMs !== null &&
-                run.candidateMedianMs !== null;
+              <p className="text-[13px] text-sage">
+                Try changing your search or clearing the active filters.
+              </p>
 
-              const improvement =
-                hasBoth && run.baselineMedianMs! > 0
-                  ? ((run.baselineMedianMs! -
-                      run.candidateMedianMs!) /
-                      run.baselineMedianMs!) *
-                    100
-                  : null;
+              <button
+                type="button"
+                onClick={() => setFilters(EMPTY_FILTERS)}
+                className="flex h-10 items-center border border-graphite px-4 text-[13px] text-paper transition-colors duration-300 hover:border-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-chartreuse"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
 
-              const candidateFaster =
-                improvement !== null && improvement > 0;
+          {visibleRuns.length > 0 && (
+            <ul className="divide-y divide-graphite border-y border-graphite">
+              {visibleRuns.map((run) => {
+                const hasBoth =
+                  run.baselineMedianMs !== null &&
+                  run.candidateMedianMs !== null;
 
-              return (
-                <li key={run.id}>
-                  <a
-                    href={appHash('history', run.id)}
-                    className="group grid gap-5 py-6 transition-colors duration-300 hover:bg-paper/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-chartreuse lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center lg:gap-8"
-                  >
+                const improvement =
+                  hasBoth && run.baselineMedianMs! > 0
+                    ? ((run.baselineMedianMs! -
+                        run.candidateMedianMs!) /
+                        run.baselineMedianMs!) *
+                      100
+                    : null;
 
-                    {/* EXPERIMENT DETAILS */}
-                    <div className="flex min-w-0 items-start gap-4">
+                const candidateFaster =
+                  improvement !== null && improvement > 0;
 
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-graphite text-sage transition-colors group-hover:border-chartreuse group-hover:text-chartreuse">
-                        <FlaskConical className="h-4 w-4" />
+                return (
+                  <li key={run.id}>
+                    <a
+                      href={appHash('history', run.id)}
+                      className="group grid gap-5 py-6 transition-colors duration-300 hover:bg-paper/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-chartreuse lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center lg:gap-8"
+                    >
+                      {/* EXPERIMENT DETAILS */}
+                      <div className="flex min-w-0 items-start gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-graphite text-sage transition-colors group-hover:border-chartreuse group-hover:text-chartreuse">
+                          <FlaskConical className="h-4 w-4" />
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-[15px] text-paper transition-colors group-hover:text-chartreuse">
+                            {run.name}
+                          </p>
+
+                          <p className="mt-2 font-mono text-[10px] text-sage">
+                            {MODE_COPY[run.mode].label}
+                            {' · '}
+                            {run.inputSize.toLocaleString()} records
+                          </p>
+
+                          <p className="mt-1 font-mono text-[10px] text-sage">
+                            {new Date(run.createdAt).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="truncate text-[15px] text-paper transition-colors group-hover:text-chartreuse">
-                          {run.name}
-                        </p>
-
-                        <p className="mt-2 font-mono text-[10px] text-sage">
-                          {MODE_COPY[run.mode].label}
-                          {' · '}
-                          {run.inputSize.toLocaleString()} records
-                        </p>
-
-                        <p className="mt-1 font-mono text-[10px] text-sage">
-                          {new Date(run.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-
-                    </div>
-
-                    {/* BASELINE */}
-                    <div>
-                      <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
-                        Baseline median
-                      </p>
-
-                      <p className="mt-2 font-mono text-[13px] tabular-nums text-paper">
-                        {run.baselineMedianMs === null
-                          ? 'n/a'
-                          : formatMs(run.baselineMedianMs)}
-                      </p>
-                    </div>
-
-                    {/* CANDIDATE */}
-                    <div>
-                      <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
-                        Candidate median
-                      </p>
-
-                      <p className="mt-2 font-mono text-[13px] tabular-nums text-paper">
-                        {run.candidateMedianMs === null
-                          ? 'n/a'
-                          : formatMs(run.candidateMedianMs)}
-                      </p>
-                    </div>
-
-                    {/* DIFFERENCE */}
-                    <div className="flex items-center justify-between gap-4 lg:min-w-[110px] lg:justify-end">
-
-                      <div className="lg:text-right">
+                      {/* BASELINE */}
+                      <div>
                         <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
-                          Difference
+                          Baseline median
                         </p>
 
-                        <p
-                          className={`mt-2 font-mono text-[12px] tabular-nums ${
-                            candidateFaster
-                              ? 'text-chartreuse'
-                              : 'text-sage'
-                          }`}
-                        >
-                          {improvement === null
+                        <p className="mt-2 font-mono text-[13px] tabular-nums text-paper">
+                          {run.baselineMedianMs === null
                             ? 'n/a'
-                            : improvement > 0
-                              ? `+${improvement.toFixed(1)}%`
-                              : improvement < 0
-                                ? `${improvement.toFixed(1)}%`
-                                : '0.0%'}
+                            : formatMs(run.baselineMedianMs)}
                         </p>
                       </div>
 
-                      {candidateFaster ? (
-                        <ArrowDownRight className="h-4 w-4 text-chartreuse" />
-                      ) : (
-                        <ArrowRight className="h-4 w-4 text-sage transition-transform group-hover:translate-x-1 group-hover:text-chartreuse" />
-                      )}
+                      {/* CANDIDATE */}
+                      <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
+                          Candidate median
+                        </p>
 
-                    </div>
+                        <p className="mt-2 font-mono text-[13px] tabular-nums text-paper">
+                          {run.candidateMedianMs === null
+                            ? 'n/a'
+                            : formatMs(run.candidateMedianMs)}
+                        </p>
+                      </div>
 
-                  </a>
-                </li>
-              );
-            })}
+                      {/* DIFFERENCE */}
+                      <div className="flex items-center justify-between gap-4 lg:min-w-[110px] lg:justify-end">
+                        <div className="lg:text-right">
+                          <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
+                            Difference
+                          </p>
 
-          </ul>
-        )}
+                          <p
+                            className={`mt-2 font-mono text-[12px] tabular-nums ${
+                              candidateFaster
+                                ? 'text-chartreuse'
+                                : 'text-sage'
+                            }`}
+                          >
+                            {improvement === null
+                              ? 'n/a'
+                              : improvement > 0
+                                ? `+${improvement.toFixed(1)}%`
+                                : improvement < 0
+                                  ? `${improvement.toFixed(1)}%`
+                                  : '0.0%'}
+                          </p>
+                        </div>
 
-      </section>
+                        {candidateFaster ? (
+                          <ArrowDownRight className="h-4 w-4 text-chartreuse" />
+                        ) : (
+                          <ArrowRight className="h-4 w-4 text-sage transition-transform group-hover:translate-x-1 group-hover:text-chartreuse" />
+                        )}
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
 
       {/* FOOTER NOTE */}
-      {state.runs.length > 0 && (
+      {hasRuns && (
         <p className="font-mono text-[10px] leading-[1.7] text-sage">
           RESULTS ARE STORED LOCALLY IN THIS BROWSER ·
           PERFORMANCE DIFFERENCES ARE CALCULATED FROM SAVED MEDIANS
         </p>
       )}
+    </div>
+  );
+}
 
+/* ============================================================
+   EMPTY HISTORY
+============================================================ */
+
+function EmptyHistory() {
+  const steps = [
+    {
+      number: '01',
+      title: 'Write',
+      description: 'Prepare your baseline and candidate implementations.',
+    },
+    {
+      number: '02',
+      title: 'Run',
+      description: 'Execute both implementations under the same conditions.',
+    },
+    {
+      number: '03',
+      title: 'Compare',
+      description: 'Inspect timing, memory and estimated environmental impact.',
+    },
+    {
+      number: '04',
+      title: 'Save',
+      description: 'Keep the results in your experiment archive.',
+    },
+  ];
+
+  return (
+    <section className="flex flex-col gap-10">
+
+      {/* EMPTY HERO */}
+      <div className="relative overflow-hidden border border-graphite bg-paper/[0.015]">
+        <div className="absolute right-0 top-0 h-56 w-56 translate-x-1/3 -translate-y-1/3 rounded-full border border-chartreuse/10" />
+        <div className="absolute right-8 top-8 h-36 w-36 rounded-full border border-chartreuse/10" />
+
+        <div className="relative grid gap-8 p-6 sm:p-9 lg:grid-cols-[1.15fr_0.85fr] lg:items-center lg:p-12">
+          <div className="max-w-xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center border border-chartreuse/40 text-chartreuse">
+                <FlaskConical className="h-5 w-5" />
+              </div>
+
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-sage">
+                Your experiment archive · 00
+              </span>
+            </div>
+
+            <h3 className="mt-7 font-display text-[clamp(2rem,4vw,3.25rem)] leading-[1.05] tracking-[-0.025em] text-paper">
+              Your experiments
+              <span className="block text-chartreuse">
+                start here.
+              </span>
+            </h3>
+
+            <p className="mt-5 max-w-lg text-[14px] leading-[1.8] text-sage">
+              Every benchmark you save becomes part of your performance
+              story. Compare implementations, track improvements and
+              understand the computational cost behind your code.
+            </p>
+
+            <a
+              href={appHash('workbench')}
+              className="group mt-8 inline-flex h-12 items-center gap-4 bg-chartreuse px-6 text-[13px] font-medium text-ink transition-transform duration-300 hover:-translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-chartreuse"
+            >
+              Run your first experiment
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+            </a>
+
+            <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
+              No experiments saved yet
+            </p>
+          </div>
+
+          {/* DECORATIVE BENCHMARK PREVIEW */}
+          <div className="border border-graphite bg-ink/70 p-5 sm:p-6">
+            <div className="flex items-center justify-between border-b border-graphite pb-4">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-sage">
+                Comparison preview
+              </span>
+
+              <span className="border border-chartreuse/30 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-chartreuse">
+                Example
+              </span>
+            </div>
+
+            <div className="mt-6 space-y-5">
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-sage">
+                    Baseline
+                  </span>
+                  <span className="font-mono text-[11px] text-paper">
+                    —
+                  </span>
+                </div>
+
+                <div className="h-2 overflow-hidden bg-graphite">
+                  <div className="h-full w-[82%] bg-sage/50" />
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-sage">
+                    Candidate
+                  </span>
+                  <span className="font-mono text-[11px] text-paper">
+                    —
+                  </span>
+                </div>
+
+                <div className="h-2 overflow-hidden bg-graphite">
+                  <div className="h-full w-[48%] bg-chartreuse/70" />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-7 grid grid-cols-2 gap-3 border-t border-graphite pt-5">
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
+                  Runtime
+                </p>
+                <p className="mt-2 font-display text-xl text-paper">
+                  —
+                </p>
+              </div>
+
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
+                  Improvement
+                </p>
+                <p className="mt-2 font-display text-xl text-chartreuse">
+                  —
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-5 font-mono text-[9px] leading-[1.6] text-sage">
+              ILLUSTRATIVE LAYOUT ONLY · REAL VALUES APPEAR AFTER A BENCHMARK
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* WHAT GETS TRACKED */}
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-sage">
+              Inside your archive
+            </p>
+
+            <h3 className="mt-3 font-display text-2xl text-paper">
+              More than just execution time.
+            </h3>
+          </div>
+
+          <p className="max-w-sm text-[12px] leading-[1.7] text-sage">
+            Your saved results help you understand how code performs
+            and the resources it consumes.
+          </p>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricPreview
+            icon={<Timer className="h-4 w-4" />}
+            index="01"
+            title="Execution time"
+            description="Compare runtime and identify faster implementations."
+          />
+
+          <MetricPreview
+            icon={<MemoryStick className="h-4 w-4" />}
+            index="02"
+            title="Memory usage"
+            description="Understand the memory footprint of your code."
+          />
+
+          <MetricPreview
+            icon={<Zap className="h-4 w-4" />}
+            index="03"
+            title="Energy estimates"
+            description="Explore modeled energy consumption across runs."
+          />
+
+          <MetricPreview
+            icon={<Leaf className="h-4 w-4" />}
+            index="04"
+            title="CO₂e estimates"
+            description="See the estimated environmental impact of computation."
+          />
+        </div>
+      </div>
+
+      {/* HOW IT WORKS */}
+      <div className="border-y border-graphite py-8">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-sage">
+              The workflow
+            </p>
+
+            <h3 className="mt-3 font-display text-2xl text-paper">
+              From code to insight.
+            </h3>
+          </div>
+
+          <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-sage">
+            Write · Run · Compare · Save
+          </span>
+        </div>
+
+        <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {steps.map((step, index) => (
+            <div key={step.number} className="relative">
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-[11px] text-chartreuse">
+                  {step.number}
+                </span>
+
+                <div className="h-px flex-1 bg-graphite" />
+
+                {index < steps.length - 1 && (
+                  <ArrowRight className="hidden h-3 w-3 text-sage lg:block" />
+                )}
+              </div>
+
+              <h4 className="mt-4 font-display text-xl text-paper">
+                {step.title}
+              </h4>
+
+              <p className="mt-2 max-w-[230px] text-[12px] leading-[1.7] text-sage">
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* LOCAL STORAGE NOTE */}
+      <div className="flex flex-col gap-3 border border-graphite p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 text-chartreuse">
+            <Check className="h-4 w-4" />
+          </div>
+
+          <div>
+            <p className="text-[13px] text-paper">
+              Your experiments stay in this browser.
+            </p>
+
+            <p className="mt-1 max-w-xl text-[11px] leading-[1.7] text-sage">
+              Saved benchmark results are stored locally on this device.
+              They are not synced across browsers or devices.
+            </p>
+          </div>
+        </div>
+
+        <a
+          href={appHash('workbench')}
+          className="group inline-flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-chartreuse transition-colors hover:text-paper"
+        >
+          Start benchmarking
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-1" />
+        </a>
+      </div>
+    </section>
+  );
+}
+
+function MetricPreview({
+  icon,
+  index,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  index: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="border-t border-chartreuse/50 pt-5">
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[9px] text-sage">
+          {index}
+        </span>
+
+        <span className="text-chartreuse">
+          {icon}
+        </span>
+      </div>
+
+      <h4 className="mt-5 text-[14px] text-paper">
+        {title}
+      </h4>
+
+      <p className="mt-2 text-[12px] leading-[1.7] text-sage">
+        {description}
+      </p>
     </div>
   );
 }
